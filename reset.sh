@@ -1,0 +1,1 @@
+rm Logs -r; cp --preserve -r Logs.bak/ Logs
