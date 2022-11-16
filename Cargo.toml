@@ -8,5 +8,5 @@ edition = "2021"
 [dependencies]
 chrono = "0.4.23"
 clap = { version = "4.0.25", features = ["derive"] }
+tar = "0.4.38"
 walkdir = "2.3.2"
-zip_archive = "1.2.2"

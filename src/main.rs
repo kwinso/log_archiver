@@ -3,7 +3,8 @@ use std::{fs, path::PathBuf, process::exit, time::Instant};
 use chrono::{DateTime, Datelike, Duration, Local, Timelike};
 use clap::Parser;
 use walkdir::{DirEntry, WalkDir};
-use zip_archive::{Archiver, Format};
+// se zip_archive::{Archiver, Format};
+use tar::Builder as TarBuilder;
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
@@ -25,7 +26,9 @@ fn list_files_recursively(path: &PathBuf) -> Vec<DirEntry> {
         .into_iter()
         .filter(|v| v.is_ok())
         .map(|v| v.unwrap())
-        .filter(|v| v.metadata().unwrap().is_file())
+        .filter(|v| {
+            v.metadata().unwrap().is_file() && !v.file_name().to_string_lossy().ends_with(".tar")
+        })
         .collect();
 }
 
@@ -58,10 +61,10 @@ fn zip_files(files: &[DirEntry], dir: &PathBuf) {
         .into();
 
     let mut files_to_archive: Vec<&DirEntry> = vec![];
-    let mut archiver = Archiver::new();
+    // let mut archiver = Archiver::new();
 
-    archiver.set_format(Format::Zip);
-    archiver.set_thread_count(4);
+    // archiver.set_format(Format::Zip);
+    // archiver.set_thread_count(4);
 
     for (i, f) in files.iter().enumerate() {
         let date: DateTime<Local> = f.metadata().unwrap().modified().unwrap().into();
@@ -75,28 +78,24 @@ fn zip_files(files: &[DirEntry], dir: &PathBuf) {
         }
 
         let human_readable = current_date.format("%d-%m-%Y");
-        let dest_dir = dir.join(format!(
-            "{}_{}",
+        let dest = dir.join(format!(
+            "{}_{}.tar",
             dir.file_name().unwrap().to_str().unwrap(),
             human_readable
         ));
 
-        if !dest_dir.exists() {
-            fs::create_dir(&dest_dir).unwrap();
-        }
+        let file = fs::File::create(dest).unwrap();
+        let mut tar = TarBuilder::new(file);
 
         // Move all files to newly created directory
         for v in &files_to_archive {
-            fs::rename(v.path(), &dest_dir.join(v.file_name())).unwrap();
+            tar.append_file(v.file_name(), &mut fs::File::open(v.path()).unwrap())
+                .unwrap();
+            fs::remove_file(v.path()).unwrap();
         }
 
-        // Archive directory
-        archiver.push(&dest_dir);
-        archiver.set_destination(dir);
-        archiver.archive().unwrap();
-        // Delete it 
-        fs::remove_dir_all(dest_dir).unwrap();
-        
+        tar.finish().unwrap();
+
         // Reset for the next date
         files_to_archive.clear();
 
