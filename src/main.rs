@@ -222,10 +222,6 @@ fn process_dir(dir: &PathBuf, archive_from: &DateTime<Local>, delete_from: &Date
                 return time < *archive_from;
             });
 
-        if dir.file_name().unwrap().to_string_lossy() == "dir" {
-            println!("{} {end}", files.len());
-        }
-
         for deleted in &files[0..start] {
             fs::remove_file(deleted.path()).unwrap();
         }
