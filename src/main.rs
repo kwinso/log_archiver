@@ -86,7 +86,7 @@ fn send_telegram_notification(args: &Args, elapsed_time: std::time::Duration) {
 
     // TODO: Add ip info
     let text = format!(
-        "Произведена очистка логов на `<IP>`\n*Время выполенения*: {:.2}ms",
+        "Произведена очистка логов на `<IP>`\n*Время выполенения*: {:.2}s",
         elapsed_time.as_secs_f32()
     );
 
