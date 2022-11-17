@@ -9,4 +9,5 @@ edition = "2021"
 chrono = "0.4.23"
 clap = { version = "4.0.25", features = ["derive"] }
 tar = "0.4.38"
+ureq = { version = "2.5.0", features = ["json"] }
 walkdir = "2.3.2"
