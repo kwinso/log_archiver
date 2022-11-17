@@ -7,7 +7,6 @@ use std::{
     time::Instant,
 };
 use ureq;
-// se zip_archive::{Archiver, Format};
 use tar::Builder as TarBuilder;
 
 #[derive(Parser, Debug)]
@@ -149,7 +148,6 @@ fn normalize_date(date: &DateTime<Local>) -> DateTime<Local> {
         .unwrap();
 }
 
-// TODO: Keep structure of folders inside the given directy, save it even inside archive
 fn is_same_day(a: &DateTime<Local>, b: &DateTime<Local>) -> bool {
     return a.year() == b.year() && a.month() == b.month() && a.day() == b.day();
 }
