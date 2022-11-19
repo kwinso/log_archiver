@@ -39,8 +39,8 @@ fn main() {
     }
 
     let local_time = chrono::offset::Local::now();
-    // Add -1 becuase of partition point algorithm finds index where it's "given date and less",
-    // and we need strictly less than gived date
+    // Add -1 becuase of partition point algorithm finds the next index from the partition end.
+    // So, if we need to capture this day inclusively, we actually should search for the previous day
     let archive_from = local_time - Duration::days(args.archive as i64 - 1);
     let archive_from = normalize_date(&archive_from);
 
@@ -68,6 +68,7 @@ fn list_subdirs(path: &PathBuf) -> Vec<DirEntry> {
         .collect();
 }
 
+// Sets date's time to midnight
 fn normalize_date(date: &DateTime<Local>) -> DateTime<Local> {
     return date
         .with_hour(0)
@@ -83,6 +84,7 @@ fn is_same_day(a: &DateTime<Local>, b: &DateTime<Local>) -> bool {
 }
 
 fn pack_to_archive(files: &Vec<&DirEntry>, dir: &PathBuf, date: &DateTime<Local>) {
+    // Archives should have readable name that consists of directory name and date in format specified below
     let human_readable = date.format("%d-%m-%Y");
     let dest = dir.join(format!(
         "{}_{}.zip",
@@ -91,16 +93,16 @@ fn pack_to_archive(files: &Vec<&DirEntry>, dir: &PathBuf, date: &DateTime<Local>
     ));
 
     let file = fs::File::create(dest).unwrap();
-    // let mut tar = TarBuilder::new(file);
     let mut zip = zip::ZipWriter::new(file);
     let options = FileOptions::default()
         .compression_method(zip::CompressionMethod::DEFLATE);
 
-    // Move all files to newly created directory
-    
     for v in files {
+        // Pack file to archive
         zip.start_file(v.file_name().to_string_lossy(), options).unwrap();
         zip.write_all(&fs::read(v.path()).unwrap()).unwrap();
+
+        // Remove the actual file from directory
         fs::remove_file(v.path()).unwrap();
     }
 
@@ -112,30 +114,33 @@ fn archive_files(files: &[DirEntry], parent_dir: &PathBuf) -> usize {
         return 0;
     }
 
+    // Start with date of the first file. We can do it, since files are sorted by date
     let mut current_date: DateTime<Local> = files[0].metadata().unwrap().modified().unwrap().into();
     let mut files_to_archive: Vec<&DirEntry> = vec![];
+    // Amount of files we've already packed
     let mut amount = 0;
 
     for f in files.iter() {
-        // Skip archives
+        // Don't allow archives to be put inside another archives
         if f.file_name().to_string_lossy().ends_with(".zip") {
             continue;
         }
 
         let date: DateTime<Local> = f.metadata().unwrap().modified().unwrap().into();
 
+        // Continue adding until we get a different date
         if is_same_day(&date, &current_date) {
             files_to_archive.push(f);
             continue;
         }
 
         amount += files_to_archive.len();
-
         pack_to_archive(&files_to_archive, &parent_dir, &current_date);
+
+
+        current_date = date.clone();
         // Reset for the next date
         files_to_archive.clear();
-        current_date = date.clone();
-
         files_to_archive.push(f);
     }
 
@@ -143,13 +148,13 @@ fn archive_files(files: &[DirEntry], parent_dir: &PathBuf) -> usize {
     amount += files_to_archive.len();
     pack_to_archive(&files_to_archive, &parent_dir, &current_date);
 
-
     return amount;
 }
 
 fn process_dir(dir: &PathBuf, archive_from: &DateTime<Local>, delete_from: &DateTime<Local>) -> usize {
-    // Sort files by modified time
     let mut files = list_dir_files(dir);
+
+    // Sort from oldest to newest
     files.sort_by(|a, b| {
         let a_upd = a.metadata().unwrap().modified().unwrap();
         let b_upd = b.metadata().unwrap().modified().unwrap();
@@ -161,14 +166,14 @@ fn process_dir(dir: &PathBuf, archive_from: &DateTime<Local>, delete_from: &Date
     let len = files.len();
 
     if len > 0 {
-        // Find start and end indexes for chunk of data that should be proceesed
-        // Everything before `end` should be deleted as too old
+        // Find index when too old files end
         let start = files.partition_point(|probe| {
             let time: DateTime<Local> = probe.metadata().unwrap().modified().unwrap().into();
             return time < *delete_from;
         });
 
-        // checking for bounds to not 
+        // checking for bounds to not overflow the bound
+        // This could happen when the len is 1 and the start is 2 (bc partition_point finds the next index)
         if start < len {
             // Everything after start should not be touched as too new
             let end = start
