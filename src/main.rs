@@ -52,74 +52,6 @@ fn main() {
     println!("Done\n{:.2}s\n{} files", now.elapsed().as_secs_f32(), processed)
 }
 
-fn pack_to_archive(files: &Vec<&DirEntry>, dir: &PathBuf, date: &DateTime<Local>) {
-    // Archives should have readable name that consists of directory name and date in format specified below
-    let human_readable = date.format("%d-%m-%Y");
-    let dest = dir.join(format!(
-        "{}_{}.zip",
-        dir.file_name().unwrap().to_str().unwrap(),
-        human_readable
-    ));
-
-    let file = fs::File::create(dest).unwrap();
-    let mut zip = zip::ZipWriter::new(file);
-    let options = FileOptions::default()
-        .compression_method(zip::CompressionMethod::DEFLATE);
-
-    for v in files {
-        // Pack file to archive
-        zip.start_file(v.file_name().to_string_lossy(), options).unwrap();
-        zip.write_all(&fs::read(v.path()).unwrap()).unwrap();
-
-        // Remove the actual file from directory
-        fs::remove_file(v.path()).unwrap();
-    }
-
-    zip.finish().unwrap();
-}
-
-fn archive_files(files: &[DirEntry], parent_dir: &PathBuf) -> usize {
-    if files.len() < 1 {
-        return 0;
-    }
-
-    // Start with date of the first file. We can do it, since files are sorted by date
-    let mut current_date: DateTime<Local> = files[0].metadata().unwrap().modified().unwrap().into();
-    let mut files_to_archive: Vec<&DirEntry> = vec![];
-    // Amount of files we've already packed
-    let mut amount = 0;
-
-    for f in files.iter() {
-        // Don't allow archives to be put inside another archives
-        if f.file_name().to_string_lossy().ends_with(".zip") {
-            continue;
-        }
-
-        let date: DateTime<Local> = f.metadata().unwrap().modified().unwrap().into();
-
-        // Continue adding until we get a different date
-        if is_same_day(&date, &current_date) {
-            files_to_archive.push(f);
-            continue;
-        }
-
-        amount += files_to_archive.len();
-        pack_to_archive(&files_to_archive, &parent_dir, &current_date);
-
-
-        current_date = date.clone();
-        // Reset for the next date
-        files_to_archive.clear();
-        files_to_archive.push(f);
-    }
-
-    // Archive last date
-    amount += files_to_archive.len();
-    pack_to_archive(&files_to_archive, &parent_dir, &current_date);
-
-    return amount;
-}
-
 fn process_dir(dir: &PathBuf, archive_from: &DateTime<Local>, delete_from: &DateTime<Local>) -> usize {
     let mut files = list_dir_files(dir);
 
@@ -165,6 +97,75 @@ fn process_dir(dir: &PathBuf, archive_from: &DateTime<Local>, delete_from: &Date
 
     return processed;
 }
+
+fn archive_files(files: &[DirEntry], parent_dir: &PathBuf) -> usize {
+    if files.len() < 1 {
+        return 0;
+    }
+
+    // Start with date of the first file. We can do it, since files are sorted by date
+    let mut current_date: DateTime<Local> = files[0].metadata().unwrap().modified().unwrap().into();
+    let mut files_to_archive: Vec<&DirEntry> = vec![];
+    // Amount of files we've already packed
+    let mut amount = 0;
+
+    for f in files.iter() {
+        // Don't allow archives to be put inside another archives
+        if f.file_name().to_string_lossy().ends_with(".zip") {
+            continue;
+        }
+
+        let date: DateTime<Local> = f.metadata().unwrap().modified().unwrap().into();
+
+        // Continue adding until we get a different date
+        if is_same_day(&date, &current_date) {
+            files_to_archive.push(f);
+            continue;
+        }
+
+        amount += files_to_archive.len();
+        pack_to_archive(&files_to_archive, &parent_dir, &current_date);
+
+
+        current_date = date.clone();
+        // Reset for the next date
+        files_to_archive.clear();
+        files_to_archive.push(f);
+    }
+
+    // Archive last date
+    amount += files_to_archive.len();
+    pack_to_archive(&files_to_archive, &parent_dir, &current_date);
+
+    return amount;
+}
+
+fn pack_to_archive(files: &Vec<&DirEntry>, dir: &PathBuf, date: &DateTime<Local>) {
+    // Archives should have readable name that consists of directory name and date in format specified below
+    let human_readable = date.format("%d-%m-%Y");
+    let dest = dir.join(format!(
+        "{}_{}.zip",
+        dir.file_name().unwrap().to_str().unwrap(),
+        human_readable
+    ));
+
+    let file = fs::File::create(dest).unwrap();
+    let mut zip = zip::ZipWriter::new(file);
+    let options = FileOptions::default()
+        .compression_method(zip::CompressionMethod::DEFLATE);
+
+    for v in files {
+        // Pack file to archive
+        zip.start_file(v.file_name().to_string_lossy(), options).unwrap();
+        zip.write_all(&fs::read(v.path()).unwrap()).unwrap();
+
+        // Remove the actual file from directory
+        fs::remove_file(v.path()).unwrap();
+    }
+
+    zip.finish().unwrap();
+}
+
 
 fn list_dir_files(path: &PathBuf) -> Vec<DirEntry> {
     return fs::read_dir(path)
