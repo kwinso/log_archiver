@@ -52,37 +52,6 @@ fn main() {
     println!("Done\n{:.2}s\n{} files", now.elapsed().as_secs_f32(), processed)
 }
 
-fn list_dir_files(path: &PathBuf) -> Vec<DirEntry> {
-    return fs::read_dir(path)
-        .unwrap()
-        .map(|v| v.unwrap())
-        .filter(|v| v.path().is_file())
-        .collect();
-}
-
-fn list_subdirs(path: &PathBuf) -> Vec<DirEntry> {
-    return fs::read_dir(path)
-        .unwrap()
-        .map(|v| v.unwrap())
-        .filter(|v| v.path().is_dir())
-        .collect();
-}
-
-// Sets date's time to midnight
-fn normalize_date(date: &DateTime<Local>) -> DateTime<Local> {
-    return date
-        .with_hour(0)
-        .unwrap()
-        .with_minute(0)
-        .unwrap()
-        .with_second(0)
-        .unwrap();
-}
-
-fn is_same_day(a: &DateTime<Local>, b: &DateTime<Local>) -> bool {
-    return a.year() == b.year() && a.month() == b.month() && a.day() == b.day();
-}
-
 fn pack_to_archive(files: &Vec<&DirEntry>, dir: &PathBuf, date: &DateTime<Local>) {
     // Archives should have readable name that consists of directory name and date in format specified below
     let human_readable = date.format("%d-%m-%Y");
@@ -195,4 +164,35 @@ fn process_dir(dir: &PathBuf, archive_from: &DateTime<Local>, delete_from: &Date
     }
 
     return processed;
+}
+
+fn list_dir_files(path: &PathBuf) -> Vec<DirEntry> {
+    return fs::read_dir(path)
+        .unwrap()
+        .map(|v| v.unwrap())
+        .filter(|v| v.path().is_file())
+        .collect();
+}
+
+fn list_subdirs(path: &PathBuf) -> Vec<DirEntry> {
+    return fs::read_dir(path)
+        .unwrap()
+        .map(|v| v.unwrap())
+        .filter(|v| v.path().is_dir())
+        .collect();
+}
+
+// Sets date's time to midnight
+fn normalize_date(date: &DateTime<Local>) -> DateTime<Local> {
+    return date
+        .with_hour(0)
+        .unwrap()
+        .with_minute(0)
+        .unwrap()
+        .with_second(0)
+        .unwrap();
+}
+
+fn is_same_day(a: &DateTime<Local>, b: &DateTime<Local>) -> bool {
+    return a.year() == b.year() && a.month() == b.month() && a.day() == b.day();
 }
